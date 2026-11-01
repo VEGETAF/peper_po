@@ -92,7 +92,7 @@
 </div>
 
 <script>
-  // REEMPLAZA ESTO CON LA URL DE APPS SCRIPT
+  // REEMPLAZA ESTO CON LA URL DE APPS SCRIPT V5.1
   const API_URL = "https://script.google.com/macros/s/AKfycbxzjKeWNcgDrAINh8b0spTUQbT0zxpJBjHOBrbN_n5HlXYTQaUY0-KodrR0ZOmp_4a7hQ/exec";
   let pinActual = sessionStorage.getItem('posoqo_admin_pin') || "";
   let idCliente = null;
@@ -121,7 +121,6 @@
     else alert('PIN Incorrecto');
   }
 
-  // --- LÓGICA DE ESCÁNER QR ---
   async function iniciarEscaner() {
     if (!window.Html5Qrcode) return alert('La cámara no está disponible.');
     document.getElementById('btnIniciarCamara').classList.add('hidden');
@@ -149,7 +148,6 @@
     document.getElementById('btnIniciarCamara').classList.remove('hidden');
     document.getElementById('btnDetenerCamara').classList.add('hidden');
   }
-  // --- FIN LÓGICA ESCÁNER ---
 
   async function buscarManual() {
     const val = document.getElementById('txtBuscar').value;
