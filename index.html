@@ -85,7 +85,7 @@
       <button id="btnRegistrarCafeHoy" class="btn-green hidden" onclick="registrarCafeHoy()">Registrar café de hoy</button>
     </div>
     
-    <button id="btnCanjearJarra" class="btn-green hidden" onclick="canjear('jarra')">Entregar Jarra Gratis</button>
+    <button id="btnCanjearJarra" class="btn-green hidden" onclick="canjear('chop')">Entregar Chop Gratis</button>
     <button id="btnCanjearPiqueo" class="btn-green hidden" onclick="canjear('piqueo')">Entregar Piqueo Gratis</button>
     <hr style="border-color:#333;"><button class="btn-outline" onclick="volver()">Buscar otro cliente</button>
   </div>
@@ -152,7 +152,9 @@
   async function buscarManual() {
     const val = document.getElementById('txtBuscar').value;
     if(!val) return;
+    document.querySelector('#pantallaEspera button').textContent = "Buscando...";
     const res = await llamarAPI({ accion: 'buscarCliente', busqueda: val, pin: pinActual });
+    document.querySelector('#pantallaEspera button').textContent = "Buscar Cliente";
     if(res.exito) cargarCliente(res.id);
     else alert(res.mensaje);
   }
