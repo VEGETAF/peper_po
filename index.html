@@ -20,13 +20,16 @@
     .stat-box h4 { margin: 0 0 5px 0; color: var(--gold); font-size: 1.1rem; }
     .stat-box p { margin: 0 0 10px 0; font-size: 1.5rem; font-weight: 800; }
     .grid-botones { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+    .cafe-admin { padding: 15px; border: 1px solid #6d4a12; border-radius: 14px; background: #0c0c0c; margin-bottom: 15px;}
+    .cafe-admin h3 { margin: 0 0 8px; color: var(--gold); font-size: 1.02rem; }
+    .cafe-admin-status { padding: 10px; border-radius: 10px; font-size: .82rem; background: #202020; color: #eee; margin-bottom: 10px; }
     .hidden { display: none !important; }
   </style>
 </head>
 <body>
 <div class="container">
   <div style="text-align:center; margin-bottom:15px;">
-    <h1 style="color:var(--gold); margin:0;">POSOQO</h1><p style="margin:0; color:#888;">Terminal Barra</p>
+    <h1 style="color:var(--gold); margin:0;">POSOQO</h1><p style="margin:0; color:#888;">Terminal Barra V5</p>
   </div>
 
   <div id="pantallaLogin" class="box">
@@ -54,13 +57,27 @@
     </div>
     
     <div class="stat-box">
-      <h4>🍴 Menús</h4><p id="statMenu">0/24</p>
+      <h4>🍴 Menús Normales</h4><p id="statMenuN">0/20</p>
       <div class="grid-botones">
-        <button class="btn-outline" onclick="sumar('menu',1)">+1</button>
-        <button class="btn-outline" onclick="sumar('menu',2)">+2</button>
-        <button class="btn-outline" onclick="sumar('menu',3)">+3</button>
-        <button class="btn-outline" onclick="sumar('menu',4)">+4</button>
+        <button class="btn-outline" onclick="sumar('menuNormal',1)">+1</button>
+        <button class="btn-outline" onclick="sumar('menuNormal',2)">+2</button>
+        <button class="btn-outline" onclick="sumar('menuNormal',3)">+3</button>
+        <button class="btn-outline" onclick="sumar('menuNormal',4)">+4</button>
       </div>
+    </div>
+
+    <!-- BOTONES DE DESCUENTO 50% -->
+    <div class="stat-box" style="border-color: var(--green);">
+      <h4 style="color:var(--green)">🏷️ Menús 50% Dcto</h4><p id="statMenuD" style="color:var(--green)">0/4</p>
+      <button id="btnDcto" class="btn-outline" style="border-color:var(--green); color:var(--green); font-size: 1.1rem; padding: 15px;" onclick="sumar('menuDcto',1)">Aplicar 50% Dcto AHORA (+1)</button>
+      <p style="color:#888; font-size:0.8rem; margin:10px 0 0 0;">Solo se activa al llegar a múltiplos de 5 en menú normal.</p>
+    </div>
+
+    <div class="cafe-admin" id="panelCafeAdmin">
+      <h3>☕ Tarjeta de café</h3>
+      <div id="cafeAdminEstado" class="cafe-admin-status">Consultando suscripción…</div>
+      <button id="btnActivarSuscripcionCafe" class="btn-gold" onclick="activarSuscripcionCafe()">Activar suscripción (1 Mes)</button>
+      <button id="btnRegistrarCafeHoy" class="btn-green hidden" onclick="registrarCafeHoy()">Registrar café de hoy</button>
     </div>
     
     <button id="btnCanjearJarra" class="btn-green hidden" onclick="canjear('jarra')">Entregar Jarra Gratis</button>
@@ -70,11 +87,10 @@
 </div>
 
 <script>
-  // REEMPLAZA ESTO CON LA URL DE APPS SCRIPT
   const API_URL = "https://script.google.com/macros/s/AKfycbxzjKeWNcgDrAINh8b0spTUQbT0zxpJBjHOBrbN_n5HlXYTQaUY0-KodrR0ZOmp_4a7hQ/exec";
   let pinActual = sessionStorage.getItem('posoqo_admin_pin') || "";
   let idCliente = null;
-  let sCerveza = 0, sMenu = 0;
+  let sMenuN = 0, sMenuD = 0;
 
   window.onload = () => { if(pinActual) mostrar('espera'); };
 
@@ -87,7 +103,8 @@
   async function llamarAPI(params) {
     const url = new URL(API_URL); url.searchParams.set('api', 'true');
     Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, String(v)));
-    const res = await fetch(url.toString()); return JSON.parse(await res.text());
+    const res = await fetch(url.toString(), { method: 'GET', redirect: 'follow', cache: 'no-store' }); 
+    return JSON.parse(await res.text());
   }
 
   async function iniciarSesion() {
@@ -112,37 +129,70 @@
     if(!res.exito) return alert("Error al cargar cliente.");
     idCliente = id;
     document.getElementById('lblNombre').textContent = res.cliente.nombre;
-    sCerveza = res.saldos.cerveza; sMenu = res.saldos.menu;
     
-    document.getElementById('statCerveza').textContent = `${sCerveza % 9}/9`;
-    document.getElementById('statMenu').textContent = `${sMenu}/24`;
-    document.getElementById('btnCanjearJarra').classList.toggle('hidden', sCerveza < 9);
+    document.getElementById('statCerveza').textContent = `${res.saldos.cerveza % 9}/9`;
+    
+    sMenuN = res.saldos.menuNormal; 
+    sMenuD = res.saldos.menuDcto;
+    document.getElementById('statMenuN').textContent = `${sMenuN}/20`;
+    document.getElementById('statMenuD').textContent = `${sMenuD}/4`;
+    
+    // Logica de Activacion del Boton de Descuento
+    // Si la división de normales entre 5 es mayor a los descuentos actuales, significa que tiene un descuento pendiente de usar.
+    const dctosDisponibles = Math.floor(sMenuN / 5) - sMenuD;
+    const btnDcto = document.getElementById('btnDcto');
+    if (dctosDisponibles > 0 && sMenuD < 4) {
+      btnDcto.disabled = false;
+      btnDcto.textContent = `Aplicar 50% Dcto AHORA (+1)`;
+      btnDcto.style.opacity = '1';
+    } else {
+      btnDcto.disabled = true;
+      btnDcto.textContent = `Descuento Bloqueado`;
+      btnDcto.style.opacity = '0.4';
+    }
+
+    document.getElementById('btnCanjearJarra').classList.toggle('hidden', res.saldos.cerveza < 9);
     document.getElementById('btnCanjearPiqueo').classList.toggle('hidden', res.saldos.piqueos < 1);
+    
+    actualizarPanelCafeAdmin(res.cafe);
     
     if(res.saldos.piqueos > 0) alert(`¡ATENCIÓN! Este cliente tiene un PIQUEO GRATIS vigente hasta el ${res.saldos.vencimientoPiqueo}`);
     mostrar('acciones');
   }
 
+  function actualizarPanelCafeAdmin(cafe) {
+    const estado = document.getElementById('cafeAdminEstado');
+    const btnActivar = document.getElementById('btnActivarSuscripcionCafe');
+    const btnCafe = document.getElementById('btnRegistrarCafeHoy');
+    
+    if (!cafe || !cafe.vigente) {
+      estado.textContent = 'Sin suscripción activa.';
+      btnActivar.classList.remove('hidden'); btnCafe.classList.add('hidden');
+    } else {
+      estado.textContent = cafe.entregadoHoy ? '☑ El café de hoy ya fue entregado.' : '✓ Suscripción vigente. Café disponible.';
+      btnActivar.classList.add('hidden');
+      btnCafe.classList.toggle('hidden', !!cafe.entregadoHoy);
+    }
+  }
+
+  async function activarSuscripcionCafe() {
+    if(!confirm(`¿Activar una suscripción mensual de café para este cliente?`)) return;
+    const res = await llamarAPI({ accion:'activarSuscripcionCafe', id:idCliente, pin:pinActual });
+    alert(res.mensaje);
+    if(res.exito) cargarCliente(idCliente);
+  }
+
+  async function registrarCafeHoy() {
+    if(!confirm(`¿Confirmas entregar el café de hoy? Solo uno por día.`)) return;
+    const res = await llamarAPI({ accion:'registrarCafeHoy', id:idCliente, pin:pinActual });
+    alert(res.mensaje);
+    if(res.exito) volver();
+  }
+
   async function sumar(tipo, cant) {
     if(!idCliente) return;
-    let dsctos = [];
-    
-    // LOGICA DE DECISIÓN DE MENÚ
-    if (tipo === 'menu') {
-      const tot = sMenu + cant;
-      if (tot > 24) return alert(`La tarjeta se llenará a los 24. El cliente debe canjear su piqueo antes de acumular más.`);
-      const hitos = [6, 12, 18, 24];
-      for (let h of hitos) {
-        if (sMenu < h && tot >= h) {
-          if (confirm(`🎟️ ATENCIÓN: El cliente alcanza el sello #${h}.\n\n¿Desea cobrar este plato A MITAD DE PRECIO ahora mismo?\n\n[Aceptar] = Sí, dar 50% Dcto.\n[Cancelar] = No, cobrar normal y seguir acumulando.`)) {
-            dsctos.push(h);
-          }
-        }
-      }
-    }
-    
     if(!confirm(`Registrar +${cant} a ${tipo.toUpperCase()}?`)) return;
-    const res = await llamarAPI({ accion: 'registrarConsumo', id: idCliente, tipo: tipo, cant: cant, dsctos: JSON.stringify(dsctos), pin: pinActual });
+    const res = await llamarAPI({ accion: 'registrarConsumo', id: idCliente, tipo: tipo, cant: cant, pin: pinActual });
     alert(res.mensaje);
     if(res.exito) cargarCliente(idCliente);
   }
