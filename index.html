@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#000000">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
     :root { --bg: #000; --card: #111; --gold: #F59E0B; --text: #FFF; --green:#10B981; }
     body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 14px; display: flex; justify-content: center;}
@@ -23,6 +24,7 @@
     .cafe-admin { padding: 15px; border: 1px solid #6d4a12; border-radius: 14px; background: #0c0c0c; margin-bottom: 15px;}
     .cafe-admin h3 { margin: 0 0 8px; color: var(--gold); font-size: 1.02rem; }
     .cafe-admin-status { padding: 10px; border-radius: 10px; font-size: .82rem; background: #202020; color: #eee; margin-bottom: 10px; }
+    #reader { width:100%; overflow:hidden; border-radius:14px; background:#050505; margin:12px 0; }
     .hidden { display: none !important; }
   </style>
 </head>
@@ -38,9 +40,13 @@
   </div>
 
   <div id="pantallaEspera" class="box hidden">
-    <p style="text-align:center; color:#ccc;">Ingresa el ID del cliente o celular (sin espacios)</p>
+    <div id="reader"></div>
+    <button id="btnIniciarCamara" class="btn-gold" onclick="iniciarEscaner()">Abrir cámara y escanear QR</button>
+    <button id="btnDetenerCamara" class="btn-outline hidden" onclick="detenerEscaner()">Detener cámara</button>
+    
+    <p style="text-align:center; color:#ccc; margin-top:20px;">O busca manualmente:</p>
     <input type="text" id="txtBuscar" placeholder="CLI-001 o 999888777">
-    <button class="btn-gold" onclick="buscarManual()">Buscar Cliente</button>
+    <button class="btn-outline" onclick="buscarManual()">Buscar Cliente</button>
   </div>
 
   <div id="pantallaAcciones" class="box hidden">
@@ -66,7 +72,6 @@
       </div>
     </div>
 
-    <!-- BOTONES DE DESCUENTO 50% -->
     <div class="stat-box" style="border-color: var(--green);">
       <h4 style="color:var(--green)">🏷️ Menús 50% Dcto</h4><p id="statMenuD" style="color:var(--green)">0/4</p>
       <button id="btnDcto" class="btn-outline" style="border-color:var(--green); color:var(--green); font-size: 1.1rem; padding: 15px;" onclick="sumar('menuDcto',1)">Aplicar 50% Dcto AHORA (+1)</button>
@@ -87,10 +92,12 @@
 </div>
 
 <script>
+  // REEMPLAZA ESTO CON LA URL DE APPS SCRIPT
   const API_URL = "https://script.google.com/macros/s/AKfycbxzjKeWNcgDrAINh8b0spTUQbT0zxpJBjHOBrbN_n5HlXYTQaUY0-KodrR0ZOmp_4a7hQ/exec";
   let pinActual = sessionStorage.getItem('posoqo_admin_pin') || "";
   let idCliente = null;
   let sMenuN = 0, sMenuD = 0;
+  let lectorQR = null, escanerActivo = false;
 
   window.onload = () => { if(pinActual) mostrar('espera'); };
 
@@ -114,12 +121,40 @@
     else alert('PIN Incorrecto');
   }
 
+  // --- LÓGICA DE ESCÁNER QR ---
+  async function iniciarEscaner() {
+    if (!window.Html5Qrcode) return alert('La cámara no está disponible.');
+    document.getElementById('btnIniciarCamara').classList.add('hidden');
+    document.getElementById('btnDetenerCamara').classList.remove('hidden');
+    
+    lectorQR = new Html5Qrcode('reader');
+    await lectorQR.start(
+      { facingMode:'environment' },
+      { fps:10, qrbox:{ width:250, height:250 } },
+      (texto) => {
+        detenerEscaner();
+        const urlMatch = texto.match(/id=(CLI-\d+)/);
+        const idFinal = urlMatch ? urlMatch[1] : (texto.startsWith('CLI-') ? texto : null);
+        if(idFinal) cargarCliente(idFinal);
+        else alert('QR no es de POSOQO.');
+      },
+      () => {}
+    );
+    escanerActivo = true;
+  }
+  
+  async function detenerEscaner() {
+    if (lectorQR && escanerActivo) { await lectorQR.stop(); lectorQR.clear(); }
+    escanerActivo = false;
+    document.getElementById('btnIniciarCamara').classList.remove('hidden');
+    document.getElementById('btnDetenerCamara').classList.add('hidden');
+  }
+  // --- FIN LÓGICA ESCÁNER ---
+
   async function buscarManual() {
     const val = document.getElementById('txtBuscar').value;
     if(!val) return;
-    document.querySelector('#pantallaEspera button').textContent = "Buscando...";
     const res = await llamarAPI({ accion: 'buscarCliente', busqueda: val, pin: pinActual });
-    document.querySelector('#pantallaEspera button').textContent = "Buscar Cliente";
     if(res.exito) cargarCliente(res.id);
     else alert(res.mensaje);
   }
@@ -137,25 +172,20 @@
     document.getElementById('statMenuN').textContent = `${sMenuN}/20`;
     document.getElementById('statMenuD').textContent = `${sMenuD}/4`;
     
-    // Logica de Activacion del Boton de Descuento
-    // Si la división de normales entre 5 es mayor a los descuentos actuales, significa que tiene un descuento pendiente de usar.
     const dctosDisponibles = Math.floor(sMenuN / 5) - sMenuD;
     const btnDcto = document.getElementById('btnDcto');
     if (dctosDisponibles > 0 && sMenuD < 4) {
-      btnDcto.disabled = false;
+      btnDcto.disabled = false; btnDcto.style.opacity = '1';
       btnDcto.textContent = `Aplicar 50% Dcto AHORA (+1)`;
-      btnDcto.style.opacity = '1';
     } else {
-      btnDcto.disabled = true;
+      btnDcto.disabled = true; btnDcto.style.opacity = '0.4';
       btnDcto.textContent = `Descuento Bloqueado`;
-      btnDcto.style.opacity = '0.4';
     }
 
     document.getElementById('btnCanjearJarra').classList.toggle('hidden', res.saldos.cerveza < 9);
     document.getElementById('btnCanjearPiqueo').classList.toggle('hidden', res.saldos.piqueos < 1);
     
     actualizarPanelCafeAdmin(res.cafe);
-    
     if(res.saldos.piqueos > 0) alert(`¡ATENCIÓN! Este cliente tiene un PIQUEO GRATIS vigente hasta el ${res.saldos.vencimientoPiqueo}`);
     mostrar('acciones');
   }
@@ -178,48 +208,33 @@
   async function activarSuscripcionCafe() {
     if(!confirm(`¿Activar una suscripción mensual de café para este cliente?`)) return;
     const res = await llamarAPI({ accion:'activarSuscripcionCafe', id:idCliente, pin:pinActual });
-    alert(res.mensaje);
-    if(res.exito) cargarCliente(idCliente);
+    alert(res.mensaje); if(res.exito) cargarCliente(idCliente);
   }
 
   async function registrarCafeHoy() {
     if(!confirm(`¿Confirmas entregar el café de hoy? Solo uno por día.`)) return;
     const res = await llamarAPI({ accion:'registrarCafeHoy', id:idCliente, pin:pinActual });
-    alert(res.mensaje);
-    if(res.exito) volver();
+    alert(res.mensaje); if(res.exito) volver();
   }
 
-async function sumar(tipo, cant) {
+  async function sumar(tipo, cant) {
     if(!idCliente) return;
-    
     let msgConfirm = `¿Registrar +${cant} a ${tipo.toUpperCase()}?`;
 
     if (tipo === 'menuNormal') {
-      const tot = sMenuN + cant;
-      
-      // LOGICA DE REINICIO
       if (sMenuN === 20 && sMenuD === 4) {
-        msgConfirm = `La tarjeta está LLENA. Al registrar, la tarjeta de menús se reiniciará a 0 y guardará el piqueo ganado intacto.\n\n¿Deseas INICIAR UNA NUEVA TARJETA con +${cant} menú(s) normal(es)?`;
+        msgConfirm = `La tarjeta está LLENA. Al registrar, se reiniciará a 0 guardando el piqueo intacto.\n\n¿INICIAR NUEVA TARJETA con +${cant}?`;
       } 
-      else if (sMenuN === 20 && sMenuD < 4) {
-        return alert(`Falta aplicar ${4 - sMenuD} descuento(s) para poder llenar la tarjeta y dar el piqueo gratis. Usa el botón de descuento antes de sumar más menús normales.`);
-      } 
-      else if (tot > 20) {
-        return alert(`La tarjeta normal se llenará a los 20 sellos. Solo faltan ${20 - sMenuN}.`);
-      }
+      else if (sMenuN === 20 && sMenuD < 4) return alert(`Falta aplicar ${4 - sMenuD} descuento(s) para completar la cartilla.`);
+      else if (sMenuN + cant > 20) return alert(`La tarjeta normal se llena a los 20. Faltan ${20 - sMenuN}.`);
     } 
     else if (tipo === 'menuDcto') {
-      const tot = sMenuD + cant;
-      if (tot > 4) return alert(`La tarjeta solo permite 4 descuentos máximos.`);
-      
-      const dsctosDisponibles = Math.floor(sMenuN / 5) - sMenuD;
-      if (cant > dsctosDisponibles) return alert(`El cliente necesita 5 menús normales por cada descuento. Aún no llega a la meta.`);
-      
-      msgConfirm = `¿Aplicar 50% de DESCUENTO en este momento y sumar 1 sello verde?`;
+      if (sMenuD + cant > 4) return alert(`Máximo 4 descuentos.`);
+      if (cant > Math.floor(sMenuN / 5) - sMenuD) return alert(`Aún no llega a la meta de 5 platos normales.`);
+      msgConfirm = `¿Aplicar 50% de DESCUENTO en este momento?`;
     }
     
     if(!confirm(msgConfirm)) return;
-    
     const res = await llamarAPI({ accion: 'registrarConsumo', id: idCliente, tipo: tipo, cant: cant, pin: pinActual });
     alert(res.mensaje);
     if(res.exito) cargarCliente(idCliente);
