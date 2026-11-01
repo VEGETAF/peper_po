@@ -189,9 +189,37 @@
     if(res.exito) volver();
   }
 
-  async function sumar(tipo, cant) {
+async function sumar(tipo, cant) {
     if(!idCliente) return;
-    if(!confirm(`Registrar +${cant} a ${tipo.toUpperCase()}?`)) return;
+    
+    let msgConfirm = `¿Registrar +${cant} a ${tipo.toUpperCase()}?`;
+
+    if (tipo === 'menuNormal') {
+      const tot = sMenuN + cant;
+      
+      // LOGICA DE REINICIO
+      if (sMenuN === 20 && sMenuD === 4) {
+        msgConfirm = `La tarjeta está LLENA. Al registrar, la tarjeta de menús se reiniciará a 0 y guardará el piqueo ganado intacto.\n\n¿Deseas INICIAR UNA NUEVA TARJETA con +${cant} menú(s) normal(es)?`;
+      } 
+      else if (sMenuN === 20 && sMenuD < 4) {
+        return alert(`Falta aplicar ${4 - sMenuD} descuento(s) para poder llenar la tarjeta y dar el piqueo gratis. Usa el botón de descuento antes de sumar más menús normales.`);
+      } 
+      else if (tot > 20) {
+        return alert(`La tarjeta normal se llenará a los 20 sellos. Solo faltan ${20 - sMenuN}.`);
+      }
+    } 
+    else if (tipo === 'menuDcto') {
+      const tot = sMenuD + cant;
+      if (tot > 4) return alert(`La tarjeta solo permite 4 descuentos máximos.`);
+      
+      const dsctosDisponibles = Math.floor(sMenuN / 5) - sMenuD;
+      if (cant > dsctosDisponibles) return alert(`El cliente necesita 5 menús normales por cada descuento. Aún no llega a la meta.`);
+      
+      msgConfirm = `¿Aplicar 50% de DESCUENTO en este momento y sumar 1 sello verde?`;
+    }
+    
+    if(!confirm(msgConfirm)) return;
+    
     const res = await llamarAPI({ accion: 'registrarConsumo', id: idCliente, tipo: tipo, cant: cant, pin: pinActual });
     alert(res.mensaje);
     if(res.exito) cargarCliente(idCliente);
