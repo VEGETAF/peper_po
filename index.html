@@ -82,7 +82,7 @@
     <div class="stat-box" style="border-color: var(--green);">
       <h4 style="color:var(--green)">🏷️ Menús 50% Dcto</h4><p id="statMenuD" style="color:var(--green)">0/4</p>
       <button id="btnDcto" class="btn-outline" style="border-color:var(--green); color:var(--green); font-size: 1.1rem; padding: 15px;" onclick="sumar('menuDcto',1)">Aplicar 50% Dcto AHORA (+1)</button>
-      <p style="color:#888; font-size:0.8rem; margin:10px 0 0 0;">Solo se activa al llegar a múltiplos de 5 en menú normal.</p>
+      <p style="color:#888; font-size:0.8rem; margin:10px 0 0 0;">Solo se activa al llenar los 5 en menú normal.</p>
     </div>
 
     <div class="cafe-admin" id="panelCafeAdmin">
@@ -281,7 +281,7 @@
     const premios = Math.floor(sCerveza / 9);
     $('statCerveza').textContent = `${avanceVisible}/9`;
     $('statChopsPendientes').textContent = premios > 0
-      ? `🍻 ${premios} chop(s) gratis pendiente(s) — no se pierden al seguir acumulando`
+      ? `🍻 ${premios} chop(s) gratis pendiente(s)`
       : 'Completa 9 sellos para desbloquear un chop gratis';
     const btn = $('btnCanjearJarra');
     btn.classList.toggle('hidden', premios < 1);
