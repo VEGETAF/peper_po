@@ -72,7 +72,7 @@
     <p id="lblTiempoCarga" style="text-align:center;color:#777;font-size:.68rem;margin:-8px 0 14px;">Ficha lista cuando se seleccione un cliente</p>
     
     <div class="stat-box" id="cajaCerveza">
-      <h4>🍺 Cervezas</h4><p id="statCerveza">0/9</p><p id="statChopsPendientes" class="beer-pending">Sin chop gratis pendiente</p>
+      <h4>🍻Tarjeta Cervezas</h4><p id="statCerveza">0/9</p><p id="statChopsPendientes" class="beer-pending">Sin chop gratis pendiente</p>
       <div class="grid-botones">
         <button class="btn-outline" onclick="sumar('cerveza',1)">+1</button>
         <button class="btn-outline" onclick="sumar('cerveza',2)">+2</button>
@@ -82,7 +82,7 @@
     </div>
     
     <div class="stat-box">
-      <h4>🍴 Menús Normales</h4><p id="statMenuN">0/20</p>
+      <h4>🍴Tarjeta Menús Normales</h4><p id="statMenuN">0/20</p>
       <div class="grid-botones">
         <button class="btn-outline" onclick="sumar('menuNormal',1)">+1</button>
         <button class="btn-outline" onclick="sumar('menuNormal',2)">+2</button>
@@ -99,7 +99,7 @@
         <button id="btnDcto3" class="btn-canjes" onclick="sumar('menuDcto',1)" disabled>Canje 3 · 50%</button>
         <button id="btnDcto4" class="btn-canjes" onclick="sumar('menuDcto',1)" disabled>Canje 4 · 50%</button>
       </div>
-      <p style="color:#888; font-size:0.8rem; margin:10px 0 0 0;">Cada canje se habilita al acumular 5 menús normales adicionales. Al tocarlo, se registra una sola vez y regresa al buscador.</p>
+      <p style="color:#888; font-size:0.8rem; margin:10px 0 0 0;">Cada canje se habilita al acumular 5 menús.</p>
     </div>
 
     <div class="cafe-admin" id="panelCafeAdmin">
@@ -316,7 +316,7 @@
     const premios = Math.floor(sCerveza / 9);
     $('statCerveza').textContent = `${avanceVisible}/9`;
     $('statChopsPendientes').textContent = premios > 0
-      ? `🍻 ${premios} chop(s) gratis pendiente(s) — no se pierden al seguir acumulando`
+      ? `Tiene ${premios} chop gratis pendiente`
       : 'Completa 9 sellos para desbloquear un chop gratis';
     const btn = $('btnCanjearJarra');
     btn.classList.toggle('hidden', premios < 1);
