@@ -317,7 +317,7 @@
     $('statCerveza').textContent = `${avanceVisible}/9`;
     $('statChopsPendientes').textContent = premios > 0
       ? `Tiene ${premios} chop gratis pendiente`
-      : 'Completa 9 sellos para desbloquear un chop gratis';
+      : '';
     const btn = $('btnCanjearJarra');
     btn.classList.toggle('hidden', premios < 1);
     btn.textContent = premios > 0 ? `Entregar chop gratis (${premios} disponible${premios === 1 ? '' : 's'})` : 'Entregar chop gratis';
