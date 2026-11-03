@@ -96,6 +96,7 @@
         <button class="btn-outline" onclick="sumar('cerveza',4)">+4</button>
       </div>
     </div>
+    <button id="btnCanjearJarra" class="btn-green hidden" onclick="canjear('chop')">Entregar chop gratis</button>
     
     <div class="stat-box">
       <h4>🍴Tarjeta de Menús</h4><p id="statMenuN">0/20</p>
@@ -117,6 +118,7 @@
       </div>
       <p style="color:#888; font-size:0.8rem; margin:10px 0 0 0;">Cada canje se habilita al acumular 5 menús.</p>
     </div>
+    <button id="btnCanjearPiqueo" class="btn-green hidden" onclick="canjear('piqueo')">Entregar Piqueo Gratis</button>
 
     <div class="cafe-admin" id="panelCafeAdmin">
       <h3>☕ Tarjeta de café</h3>
@@ -126,8 +128,6 @@
       <button id="btnRegistrarCafeHoy" class="btn-green hidden" onclick="registrarCafeHoy()">Registrar café de hoy</button>
     </div>
     
-    <button id="btnCanjearJarra" class="btn-green hidden" onclick="canjear('chop')">Entregar chop gratis</button>
-    <button id="btnCanjearPiqueo" class="btn-green hidden" onclick="canjear('piqueo')">Entregar Piqueo Gratis</button>
     <hr style="border-color:#333;"><button class="btn-outline" onclick="volver()">Buscar otro cliente</button>
   </div>
 </div>
@@ -330,7 +330,7 @@
     const premios = Math.floor(sCerveza / 9);
     $('statCerveza').textContent = `${avanceVisible}/9`;
     $('statChopsPendientes').textContent = premios > 0
-      ? `🍻Tiene ${premios} chop(s) gratis pendiente.`
+      ? `🍻Tiene ${premios} chop para canjear`
       : '';
     const btn = $('btnCanjearJarra');
     btn.classList.toggle('hidden', premios < 1);
