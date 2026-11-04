@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>POSOQO | Terminal Admin</title>
+  <title>POSOQO | Terminal Admin V5.9.8</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#000000">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -168,7 +168,7 @@
       const texto = await respuesta.text();
       let datos;
       try { datos = JSON.parse(texto); }
-      catch (_) { throw new Error('El servidor no devolvió JSON. Revisa que Code.gs V5.8 esté implementado.'); }
+      catch (_) { throw new Error('El servidor no devolvió JSON. Revisa que Code.gs V5.9.8 esté implementado.'); }
       datos._msCliente = Math.round(performance.now() - inicio);
       console.info(`[POSOQO] ${params.accion}: ${datos._msCliente} ms total; servidor: ${datos._msServidor ?? 'sin medición'} ms`);
       return datos;
@@ -299,8 +299,33 @@
     }
   }
 
-  // Actualiza los datos de la ficha actual sin volver al buscador ni recargar el panel.
-  // Se consulta al servidor después de cada operación para mostrar el saldo confirmado.
+  // Aplica el estado confirmado que devuelve el mismo guardado/canje.
+  // Evita una segunda llamada al servidor después de cada operación.
+  function aplicarActualizacionParcial(datos, tipo, celebrarNuevoPremio = false) {
+    if (!datos) return false;
+    if (tipo === 'cerveza' || tipo === 'chop') {
+      const cervezaNueva = Number(datos.cerveza) || 0;
+      const premiosAntes = sChopsPendientes;
+      const premiosDespues = Math.max(0, Number(datos.premiosChopPendientes) || 0);
+      actualizarEstadoCerveza(cervezaNueva, celebrarNuevoPremio && premiosDespues > premiosAntes,
+        premiosDespues, datos.proximoVencimientoChop || '');
+    }
+    if (tipo === 'menuNormal' || tipo === 'menuDcto') {
+      sMenuN = Math.max(0, Number(datos.menuNormal) || 0);
+      sMenuD = Math.max(0, Number(datos.menuDcto) || 0);
+      $('statMenuN').textContent = `${sMenuN}/20`;
+      $('statMenuD').textContent = `${sMenuD}/4`;
+      actualizarBotonesDescuento();
+      actualizarBotonPiqueos(datos.piqueos, datos.vencimientoPiqueo);
+    }
+    if (tipo === 'piqueo') {
+      actualizarBotonPiqueos(datos.piqueos, datos.vencimientoPiqueo);
+    }
+    $('lblTiempoCarga').textContent = 'Ficha actualizada con la respuesta del servidor.';
+    return true;
+  }
+
+  // Compatibilidad/fallback: permite refrescar toda la ficha cuando haga falta.
   async function actualizarFichaActual(idConsulta, celebrarNuevoPremio = false) {
     if (!idConsulta || idCliente !== idConsulta) return false;
     try {
@@ -436,7 +461,8 @@
     if(!confirm('¿Activar una suscripción de café por 30 días exactos para este cliente?')) return;
     try {
       const res = await llamarAPI({ accion:'activarSuscripcionCafe', id:idCliente, pin:pinActual });
-      alert(res.mensaje); if(res.exito) cargarEstadoCafeAdmin(idCliente);
+      alert(res.mensaje); if (res.exito && res.cafe) actualizarPanelCafeAdmin(res.cafe);
+      else if (res.exito) cargarEstadoCafeAdmin(idCliente);
     } catch (err) { alert(err.message); }
   }
 
@@ -453,7 +479,8 @@
         return;
       }
       // Actualiza únicamente el módulo de café. La ficha sigue abierta.
-      await cargarEstadoCafeAdmin(idProcesado);
+      if (res.cafe) actualizarPanelCafeAdmin(res.cafe);
+      else await cargarEstadoCafeAdmin(idProcesado);
       mostrarAvisoAccion('Café de hoy registrado correctamente.', 'success');
     } catch (err) {
       mostrarAvisoAccion(err.message || 'Error al registrar el café.', 'error');
@@ -527,7 +554,9 @@
       // La selección del botón ya es la autorización del trabajador.
       // La ficha permanece abierta; solo se actualizan los saldos confirmados por el servidor.
       const premiosAntesRegistro = tipo === 'cerveza' ? sChopsPendientes : 0;
-      const fichaActualizada = await actualizarFichaActual(idProcesado, tipo === 'cerveza');
+      const fichaActualizada = res.actualizacion
+        ? aplicarActualizacionParcial(res.actualizacion, tipo, tipo === 'cerveza')
+        : await actualizarFichaActual(idProcesado, tipo === 'cerveza');
       if (fichaActualizada) {
         if (tipo === 'cerveza' && sChopsPendientes > premiosAntesRegistro) {
           mensaje = `Se registraron ${cant} sello(s). ¡Chop gratis desbloqueado! Tiene 14 días de vigencia.`;
@@ -555,7 +584,9 @@
         mostrarAvisoAccion(res.mensaje || 'No se pudo entregar el premio.', 'error');
         return;
       }
-      const fichaActualizada = await actualizarFichaActual(idProcesado, false);
+      const fichaActualizada = res.actualizacion
+        ? aplicarActualizacionParcial(res.actualizacion, tipo === 'chop' ? 'chop' : 'piqueo', false)
+        : await actualizarFichaActual(idProcesado, false);
       if (fichaActualizada) {
         mostrarAvisoAccion(tipo === 'chop' ? 'Chop gratis entregado y registrado.' : 'Piqueo gratis entregado y registrado.', 'success');
       } else {
