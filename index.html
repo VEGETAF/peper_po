@@ -153,6 +153,13 @@
     $('pantallaAcciones').classList.toggle('hidden', pantalla !== 'acciones');
   }
 
+  // Después de una operación, conserva abierta la ficha del mismo cliente.
+  // Si el trabajador ya pulsó "Buscar otro cliente", idCliente será distinto/null
+  // y esta función no volverá a abrir la ficha anterior.
+  function permanecerEnFichaSiCorresponde(idEsperado) {
+    if (idEsperado && idCliente === idEsperado) mostrar('acciones');
+  }
+
   async function llamarAPI(params) {
     const url = new URL(API_URL);
     url.searchParams.set('api', 'true');
@@ -479,6 +486,7 @@
     } catch (err) {
       mostrarAvisoAccion(err.message || 'Error al registrar el café.', 'error');
     } finally {
+      permanecerEnFichaSiCorresponde(idProcesado);
       accionEnCurso = false;
       bloquearBotonesAccion(false);
     }
@@ -562,6 +570,7 @@
     } catch (err) {
       mostrarAvisoAccion(err.message || 'Error al registrar el consumo.', 'error');
     } finally {
+      permanecerEnFichaSiCorresponde(idProcesado);
       accionEnCurso = false;
       bloquearBotonesAccion(false);
     }
@@ -589,6 +598,7 @@
     } catch (err) {
       mostrarAvisoAccion(err.message || 'Error al registrar el canje.', 'error');
     } finally {
+      permanecerEnFichaSiCorresponde(idProcesado);
       accionEnCurso = false;
       bloquearBotonesAccion(false);
     }
