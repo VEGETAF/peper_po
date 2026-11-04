@@ -140,7 +140,7 @@
   const $ = (id) => document.getElementById(id);
   let pinActual = sessionStorage.getItem('posoqo_admin_pin') || "";
   let idCliente = null;
-  let sMenuN = 0, sMenuD = 0, sCerveza = 0;
+  let sMenuN = 0, sMenuD = 0, sCerveza = 0, sChopsPendientes = 0, sVencimientoChop = '';
   let lectorQR = null, escanerActivo = false, qrLibraryPromise = null;
   let solicitudClienteEnCurso = false;
   let accionEnCurso = false;
@@ -270,7 +270,7 @@
     $('lblNombre').textContent = res.cliente.nombre;
     $('lblTiempoCarga').textContent = `Ficha: ${res._msCliente ?? '—'} ms · servidor: ${res._msServidor ?? '—'} ms`;
 
-    actualizarEstadoCerveza(res.saldos.cerveza, false);
+    actualizarEstadoCerveza(res.saldos.cerveza, false, res.saldos.premiosChopPendientes, res.saldos.proximoVencimientoChop);
     sMenuN = Number(res.saldos.menuNormal) || 0;
     sMenuD = Number(res.saldos.menuDcto) || 0;
     $('statMenuN').textContent = `${sMenuN}/20`;
@@ -280,13 +280,13 @@
 
     $('btnCanjearPiqueo').classList.toggle('hidden', Number(res.saldos.piqueos) < 1);
     if (Number(res.saldos.piqueos) > 0) {
-      $('btnCanjearPiqueo').title = 'Vence: ' + (res.saldos.vencimientoPiqueo || 'fecha no informada');
+      $('btnCanjearPiqueo').title = 'Vence: ' + formatearFechaDDMMYYYY(res.saldos.vencimientoPiqueo);
     }
     mostrar('acciones');
     // La consulta de café arranca DESPUÉS de mostrar los datos principales y no bloquea la ficha.
     cargarEstadoCafeAdmin(id);
     if (Number(res.saldos.piqueos) > 0) {
-      console.info('[POSOQO] Cliente tiene piqueo pendiente; vence: ' + res.saldos.vencimientoPiqueo);
+      console.info('[POSOQO] Cliente tiene piqueo pendiente; vence: ' + formatearFechaDDMMYYYY(res.saldos.vencimientoPiqueo));
     }
   }
 
@@ -303,9 +303,9 @@
       if (idCliente !== idConsulta) return false;
 
       const cervezaNueva = Number(res.saldos.cerveza) || 0;
-      const premiosAntes = Math.floor(Math.max(0, sCerveza) / 9);
-      const premiosDespues = Math.floor(Math.max(0, cervezaNueva) / 9);
-      actualizarEstadoCerveza(cervezaNueva, celebrarNuevoPremio && premiosDespues > premiosAntes);
+      const premiosAntes = sChopsPendientes;
+      const premiosDespues = Number(res.saldos.premiosChopPendientes ?? Math.floor(Math.max(0, cervezaNueva) / 9)) || 0;
+      actualizarEstadoCerveza(cervezaNueva, celebrarNuevoPremio && premiosDespues > premiosAntes, premiosDespues, res.saldos.proximoVencimientoChop);
 
       sMenuN = Math.max(0, Number(res.saldos.menuNormal) || 0);
       sMenuD = Math.max(0, Number(res.saldos.menuDcto) || 0);
@@ -316,7 +316,7 @@
       const piqueos = Math.max(0, Number(res.saldos.piqueos) || 0);
       $('btnCanjearPiqueo').classList.toggle('hidden', piqueos < 1);
       $('btnCanjearPiqueo').title = piqueos > 0
-        ? 'Vence: ' + (res.saldos.vencimientoPiqueo || 'fecha no informada')
+        ? 'Vence: ' + formatearFechaDDMMYYYY(res.saldos.vencimientoPiqueo)
         : '';
       if (res.cliente && res.cliente.nombre) $('lblNombre').textContent = res.cliente.nombre;
       $('lblTiempoCarga').textContent = `Ficha actualizada: ${res._msCliente ?? '—'} ms · servidor: ${res._msServidor ?? '—'} ms`;
@@ -360,18 +360,23 @@
     }
   }
 
-  function actualizarEstadoCerveza(total, celebrar) {
+  function actualizarEstadoCerveza(total, celebrar, premiosPendientesServidor = null, proximoVencimientoChop = '') {
     sCerveza = Number(total) || 0;
     const resto = sCerveza % 9;
     const avanceVisible = (sCerveza > 0 && resto === 0) ? 9 : resto;
-    const premios = Math.floor(sCerveza / 9);
+    const premios = premiosPendientesServidor === null
+      ? Math.floor(sCerveza / 9)
+      : Math.max(0, Number(premiosPendientesServidor) || 0);
+    sChopsPendientes = premios;
+    sVencimientoChop = String(proximoVencimientoChop || '');
     $('statCerveza').textContent = `${avanceVisible}/9`;
     $('statChopsPendientes').textContent = premios > 0
-      ? `🍻Tiene ${premios} chop para canjear`
-      : '';
+      ? `🍻 Tiene ${premios} chop(s) gratis pendiente(s). Vence primero: ${formatearFechaDDMMYYYY(sVencimientoChop)}`
+      : 'Sin chop gratis pendiente';
     const btn = $('btnCanjearJarra');
     btn.classList.toggle('hidden', premios < 1);
     btn.textContent = premios > 0 ? `Entregar chop gratis (${premios} disponible${premios === 1 ? '' : 's'})` : 'Entregar chop gratis';
+    btn.title = premios > 0 ? `Cada chop gratis vence 14 días después de obtenerlo. Próximo vencimiento: ${formatearFechaDDMMYYYY(sVencimientoChop)}` : '';
     if (celebrar) {
       const caja = $('cajaCerveza');
       caja.classList.remove('beer-celebrate'); void caja.offsetWidth; caja.classList.add('beer-celebrate');
@@ -379,10 +384,17 @@
     }
   }
 
+  function formatearFechaDDMMYYYY(fecha) {
+    const valor = String(fecha || '').trim();
+    const iso = valor.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+    const local = valor.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+    if (local) return `${String(local[1]).padStart(2,'0')}/${String(local[2]).padStart(2,'0')}/${local[3]}`;
+    return valor || 'fecha no disponible';
+  }
   function formatearFechaCafe(fecha) {
     const valor = String(fecha || '').trim();
-    const m = valor.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    return m ? `${m[3]}/${m[2]}/${m[1]}` : (valor || 'No disponible');
+    return valor ? formatearFechaDDMMYYYY(valor) : 'No disponible';
   }
 
   function actualizarPeriodoCafe(cafe) {
@@ -485,7 +497,6 @@
     }
 
     const idProcesado = idCliente;
-    const cervezaAntes = sCerveza;
     accionEnCurso = true;
     bloquearBotonesAccion(true);
 
@@ -498,11 +509,7 @@
 
       let mensaje = 'Consumo registrado correctamente.';
       if (tipo === 'cerveza') {
-        const premiosAntes = Math.floor(cervezaAntes / 9);
-        const premiosDespues = Math.floor((cervezaAntes + cant) / 9);
-        mensaje = premiosDespues > premiosAntes
-          ? `Se registraron ${cant} sello(s). ¡Chop gratis desbloqueado!`
-          : `Se registraron ${cant} sello(s) de cerveza.`;
+        mensaje = `Se registraron ${cant} sello(s) de cerveza.`;
       } else if (tipo === 'menuNormal') {
         mensaje = (sMenuN === 20 && sMenuD === 4)
           ? `Nueva cartilla de menú iniciada: +${cant} sello(s).`
@@ -513,8 +520,12 @@
 
       // La selección del botón ya es la autorización del trabajador.
       // La ficha permanece abierta; solo se actualizan los saldos confirmados por el servidor.
+      const premiosAntesRegistro = tipo === 'cerveza' ? sChopsPendientes : 0;
       const fichaActualizada = await actualizarFichaActual(idProcesado, tipo === 'cerveza');
       if (fichaActualizada) {
+        if (tipo === 'cerveza' && sChopsPendientes > premiosAntesRegistro) {
+          mensaje = `Se registraron ${cant} sello(s). ¡Chop gratis desbloqueado! Tiene 14 días de vigencia.`;
+        }
         mostrarAvisoAccion(mensaje, 'success');
       } else {
         mostrarAvisoAccion(mensaje + ' La ficha permanece abierta; vuelve a consultar en unos segundos.', 'error');
