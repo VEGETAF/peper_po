@@ -263,6 +263,18 @@
     finally { solicitudClienteEnCurso = false; }
   }
 
+  function actualizarBotonPiqueos(cantidad, vencimiento) {
+    const total = Math.max(0, Number(cantidad) || 0);
+    const boton = $('btnCanjearPiqueo');
+    boton.classList.toggle('hidden', total < 1);
+    boton.textContent = total > 0
+      ? `Entregar Piqueo Gratis (${total} disponible${total === 1 ? '' : 's'})`
+      : 'Entregar Piqueo Gratis';
+    boton.title = total > 0
+      ? `Cada piqueo tiene 14 días de vigencia. Próximo vencimiento: ${formatearFechaDDMMYYYY(vencimiento)}`
+      : '';
+  }
+
   function mostrarCliente(res, idForzado) {
     const id = idForzado || res.id;
     if (!res || !res.exito || !id) return alert('La respuesta del servidor está incompleta.');
@@ -278,10 +290,7 @@
 
     actualizarBotonesDescuento();
 
-    $('btnCanjearPiqueo').classList.toggle('hidden', Number(res.saldos.piqueos) < 1);
-    if (Number(res.saldos.piqueos) > 0) {
-      $('btnCanjearPiqueo').title = 'Vence: ' + formatearFechaDDMMYYYY(res.saldos.vencimientoPiqueo);
-    }
+    actualizarBotonPiqueos(res.saldos.piqueos, res.saldos.vencimientoPiqueo);
     mostrar('acciones');
     // La consulta de café arranca DESPUÉS de mostrar los datos principales y no bloquea la ficha.
     cargarEstadoCafeAdmin(id);
@@ -314,10 +323,7 @@
       actualizarBotonesDescuento();
 
       const piqueos = Math.max(0, Number(res.saldos.piqueos) || 0);
-      $('btnCanjearPiqueo').classList.toggle('hidden', piqueos < 1);
-      $('btnCanjearPiqueo').title = piqueos > 0
-        ? 'Vence: ' + formatearFechaDDMMYYYY(res.saldos.vencimientoPiqueo)
-        : '';
+      actualizarBotonPiqueos(piqueos, res.saldos.vencimientoPiqueo);
       if (res.cliente && res.cliente.nombre) $('lblNombre').textContent = res.cliente.nombre;
       $('lblTiempoCarga').textContent = `Ficha actualizada: ${res._msCliente ?? '—'} ms · servidor: ${res._msServidor ?? '—'} ms`;
       return true;
